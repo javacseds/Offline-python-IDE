@@ -17,26 +17,46 @@ from app.file_manager import FileManager
 # Initialize FastAPI App
 app = FastAPI(
     title="GITAMW Python Smart IDE",
-    description="Offline Python IDE for Gowthami Institute of Technology and Management for Women (Autonomous), Proddatur",
+    description="Offline Python IDE for Gouthami Institute of Technology and Management for Women (Autonomous), Proddatur",
     version="1.0.0"
 )
 
-# Resolve Paths
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-STATIC_DIR = os.path.join(BASE_DIR, "app", "static")
-TEMPLATES_DIR = os.path.join(BASE_DIR, "app", "templates")
+# ── Path resolution: works in both normal and PyInstaller onefile/onedir mode ──
+# In frozen (onefile) mode, sys._MEIPASS is the temp extraction directory.
+# In frozen (onedir) mode, sys._MEIPASS is the _internal directory.
+# In dev mode, resolve from this file's real location.
+if getattr(sys, "frozen", False):
+    # Running as a PyInstaller bundle
+    BASE_DIR = getattr(sys, "_MEIPASS", os.path.dirname(sys.executable))
+else:
+    BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+# App-level data lives next to the .exe (persists across runs), not in _MEIPASS
+if getattr(sys, "frozen", False):
+    DATA_ROOT = os.path.dirname(sys.executable)
+else:
+    DATA_ROOT = BASE_DIR
+
+STATIC_DIR    = os.path.join(BASE_DIR,  "app", "static")
+TEMPLATES_DIR = os.path.join(BASE_DIR,  "app", "templates")
+DATA_DIR      = os.path.join(DATA_ROOT, "data")
+SAVED_DIR     = os.path.join(DATA_ROOT, "saved_programs")
+SAMPLE_DIR    = os.path.join(BASE_DIR,  "sample_programs")
 
 # Mount Static Files & Templates
-os.makedirs(STATIC_DIR, exist_ok=True)
+os.makedirs(STATIC_DIR,    exist_ok=True)
 os.makedirs(TEMPLATES_DIR, exist_ok=True)
+os.makedirs(DATA_DIR,      exist_ok=True)
+os.makedirs(SAVED_DIR,     exist_ok=True)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
+
 # Initialize Core Services
-storage = StorageManager(data_dir=os.path.join(BASE_DIR, "data"))
+storage = StorageManager(data_dir=DATA_DIR)
 file_mgr = FileManager(
-    saved_dir=os.path.join(BASE_DIR, "saved_programs"),
-    sample_dir=os.path.join(BASE_DIR, "sample_programs")
+    saved_dir=SAVED_DIR,
+    sample_dir=SAMPLE_DIR
 )
 
 # Active Session In-Memory Cache

@@ -138,13 +138,15 @@ def build_exe():
         print("     Check the output above for errors.")
         sys.exit(1)
 
-    exe_path = os.path.join(DIST_DIR, "GITAMW_Smart_IDE", "GITAMW_Smart_IDE.exe")
+    exe_path = os.path.join(DIST_DIR, "GITAMW_Smart_IDE.exe")  # onefile mode: directly in dist/
     if os.path.exists(exe_path):
         size_mb = os.path.getsize(exe_path) / (1024 * 1024)
-        print(f"\n  [OK] Build SUCCESS! EXE: {exe_path}")
-        print(f"     Size: {size_mb:.1f} MB")
+        print(f"\n  [OK] Build SUCCESS!")
+        print(f"  EXE Location: {exe_path}")
+        print(f"  Size: {size_mb:.1f} MB")
+        print(f"\n  --> Copy GITAMW_Smart_IDE.exe to any computer and double-click to run!")
     else:
-        print(f"     [WARN] EXE not found at expected path: {exe_path}")
+        print(f"     [WARN] EXE not found at: {exe_path}")
 
 
 # --- Step 3: Instructions for Inno Setup ----------------------------------
