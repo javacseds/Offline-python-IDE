@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GITAMW Python Smart IDE — Offline Edition</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <!-- Monaco Editor Loader -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.39.0/min/vs/loader.min.js"></script>
+    <!-- App Custom Stylesheet -->
+    <link rel="stylesheet" href="/static/css/style.css?v=1.0.3">
+</head>
+<body class="dark-mode">
+
+    <!-- 5% Opacity Background Watermark -->
+    <div class="watermark-bg">Gouthami Institute of Technology and Management for Women</div>
+
+    <!-- Toast Alert Notifications Container -->
+    <div id="toast-container" class="position-fixed top-0 end-0 p-3" style="z-index: 999999;"></div>
+
+    <!-- ==========================================================================
+         1. SPLASH SCREEN (3 Seconds)
+         ========================================================================== -->
+    <div id="splash-screen">
+        <div class="splash-logo-box">
+            <!-- Python Logo SVG -->
+            <svg class="splash-logo" viewBox="0 0 110 110" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M54.08 6C28.48 6 29.84 17.16 29.84 17.16L29.9 28.72H54.68V32.28H20.08C20.08 32.28 6 30.68 6 56.44C6 82.2 18.24 81 18.24 81H25.48V69.72C25.48 55.44 37.8 55.44 37.8 55.44H62.76C62.76 55.44 74.48 55.44 74.48 43.72V17.16C74.48 17.16 75.84 6 54.08 6ZM41.44 14.64C43.88 14.64 45.88 16.64 45.88 19.08C45.88 21.52 43.88 23.52 41.44 23.52C39 23.52 37 21.52 37 19.08C37 16.64 39 14.64 41.44 14.64Z" fill="#38bdf8"/>
+                <path d="M55.92 104C81.52 104 80.16 92.84 80.16 92.84L80.1 81.28H55.32V77.72H89.92C89.92 77.72 104 79.32 104 53.56C104 27.8 91.76 29 91.76 29H84.52V40.28C84.52 54.56 72.2 54.56 72.2 54.56H47.24C47.24 54.56 35.52 54.56 35.52 66.28V92.84C35.52 92.84 34.16 104 55.92 104ZM68.56 95.36C66.12 95.36 64.12 93.36 64.12 90.92C64.12 88.48 66.12 86.48 68.56 86.48C71 86.48 73 88.48 73 90.92C73 93.36 71 95.36 68.56 95.36Z" fill="#f97316"/>
+            </svg>
+            <!-- College Crest Placeholder Badge -->
+            <div class="bg-white rounded-circle p-2 d-flex align-items-center justify-content-center shadow-lg" style="width:75px; height:75px;">
+                <i class="fas fa-graduation-cap text-primary fs-1"></i>
+            </div>
+        </div>
+        <div class="splash-title">Gouthami Institute of Technology and Management for Women</div>
+        <div class="splash-subtitle">(Autonomous), Proddatur</div>
+        <div class="h5 font-weight-bold text-warning mb-4">Python Smart IDE — Desktop Edition</div>
+        <div class="splash-loader">
+            <div class="splash-loader-bar"></div>
+        </div>
+        <div class="small text-muted mt-3">Loading offline environment & Python runtime engine...</div>
+    </div>
+
+    <!-- ==========================================================================
+         2. LOGIN SCREEN (Glassmorphism UI Card)
+         ========================================================================== -->
+    <div id="login-screen">
+        <div class="login-card">
+            <div class="text-center mb-3">
+                <i class="fas fa-university fa-2x text-primary mb-2"></i>
+                <div class="login-header-title">Gouthami Institute of Technology and Management for Women</div>
+                <div class="login-header-sub">(Autonomous) — Proddatur</div>
+                <div class="mt-2 text-warning font-weight-bold">Python Smart IDE Student Login</div>
+            </div>
+
+            <form id="student-login-form">
+                <div class="row g-3">
+                    <div class="col-md-7">
+                        <label class="form-label"><i class="fas fa-user text-primary me-1"></i> Student Full Name *</label>
+                        <input type="text" id="login-name" class="form-control" placeholder="e.g. K. Sravani" required>
+                    </div>
+                    <div class="col-md-5">
+                        <label class="form-label"><i class="fas fa-id-card text-primary me-1"></i> Roll Number *</label>
+                        <input type="text" id="login-roll" class="form-control" placeholder="e.g. 212M1A0501" required>
+                    </div>
+
+                    <div class="col-md-3">
+                        <label class="form-label">Branch *</label>
+                        <select id="login-branch" class="form-select">
+                            <option value="CSE" selected>CSE</option>
+                            <option value="CSE-AI">CSE (AI)</option>
+                            <option value="CSE-DS">CSE (DS)</option>
+                            <option value="ECE">ECE</option>
+                            <option value="EEE">EEE</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Year *</label>
+                        <select id="login-year" class="form-select" required>
+                            <option value="1">I Year</option>
+                            <option value="2">II Year</option>
+                            <option value="3" selected>III Year</option>
+                            <option value="4">IV Year</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Semester *</label>
+                        <select id="login-semester" class="form-select" required>
+                            <option value="1" selected>Semester 1</option>
+                            <option value="2">Semester 2</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Section *</label>
+                        <select id="login-section" class="form-select">
+                            <option value="A" selected>Sec A</option>
+                            <option value="B">Sec B</option>
+                            <option value="C">Sec C</option>
+                        </select>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label">Email (Optional)</label>
+                        <input type="email" id="login-email" class="form-control" placeholder="student@gitamw.ac.in">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Mobile Number (Optional)</label>
+                        <input type="tel" id="login-mobile" class="form-control" placeholder="9876543210">
+                    </div>
+
+                    <div class="col-12">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="login-agreed" checked required>
+                            <label class="form-check-input-label small" for="login-agreed">
+                                I agree to the <strong>Academic Integrity Policy</strong> of GITAMW.
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="col-12 d-flex gap-3 mt-4">
+                        <button type="submit" class="btn btn-primary-custom flex-grow-1">
+                            <i class="fas fa-sign-in-alt me-2"></i> Login to IDE
+                        </button>
+                        <button type="button" id="btn-reset-login" class="btn btn-outline-secondary">
+                            <i class="fas fa-redo me-1"></i> Reset
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ==========================================================================
+         3. MAIN IDE APPLICATION INTERFACE
+         ========================================================================== -->
+    <div id="main-ide-app">
+
+        <!-- Top Header Bar -->
+        <header class="top-header-bar">
+            <div class="header-brand">
+                <i class="fas fa-laptop-code text-warning fs-4"></i>
+                <div>
+                    <div class="header-title-text">GITAMW Python Smart IDE</div>
+                    <div class="header-dept-text">Gouthami Institute of Technology and Management for Women (Autonomous)</div>
+                </div>
+            </div>
+
+            <div class="d-flex align-items-center gap-3">
+                <div id="student-profile-badge" class="student-status-badge">
+                    <!-- Populated dynamically via JS -->
+                </div>
+                <div class="text-end small d-none d-md-block">
+                    <div id="header-date" class="fw-bold"></div>
+                    <div class="text-warning">Python {{ python_version }}</div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Top Navigation Action Bar -->
+        <nav class="top-action-navbar">
+            <button class="btn btn-sm btn-outline-primary nav-btn" onclick="saveCurrentFile()">
+                <i class="fas fa-save"></i> Save (Ctrl+S)
+            </button>
+            <button id="btn-run-code" class="btn btn-sm btn-success nav-btn" onclick="runProgram()">
+                <i class="fas fa-play"></i> Run (F5)
+            </button>
+            <button class="btn btn-sm btn-outline-secondary nav-btn" onclick="clearOutputConsole()">
+                <i class="fas fa-eraser"></i> Clear (Ctrl+L)
+            </button>
+            <button class="btn btn-sm btn-outline-info nav-btn" onclick="downloadExecutionReport()">
+                <i class="fas fa-file-export"></i> Export Report
+            </button>
+
+            <div class="ms-auto d-flex align-items-center gap-2">
+                <span id="current-filename-display" class="badge bg-dark text-warning fs-6" style="cursor:pointer;" onclick="renameCurrentFile()" title="Click to rename file"><i class="fas fa-edit me-1 text-muted"></i><span id="current-filename-text">untitled.py</span></span>
+                <button class="btn btn-sm btn-outline-warning nav-btn" onclick="toggleAppTheme()">
+                    <i class="fas fa-adjust"></i> Theme
+                </button>
+                <button class="btn btn-sm btn-outline-danger nav-btn" onclick="logoutStudent()">
+                    <i class="fas fa-power-off"></i> Exit
+                </button>
+            </div>
+        </nav>
+
+        <!-- Main Body Container (Sidebar + Editor + Output) -->
+        <div class="ide-body-container">
+
+            <!-- Left Sidebar -->
+            <aside class="left-sidebar">
+                <div class="sidebar-tab-header">
+                    <button class="sidebar-tab-btn active" data-tab="files"><i class="fas fa-folder me-1"></i> Saved</button>
+                    <button class="sidebar-tab-btn" data-tab="samples"><i class="fas fa-flask me-1"></i> Lab Code</button>
+                    <button class="sidebar-tab-btn" data-tab="packages"><i class="fas fa-box me-1"></i> Packages</button>
+                    <button class="sidebar-tab-btn" data-tab="syllabus"><i class="fas fa-book me-1"></i> Syllabus</button>
+                    <button class="sidebar-tab-btn" data-tab="settings"><i class="fas fa-cog me-1"></i> Settings</button>
+                </div>
+
+                <div class="sidebar-content-area">
+                    <!-- Tab 1: Saved Student Files -->
+                    <div id="tab-pane-files" class="sidebar-tab-pane">
+                        <div class="d-flex justify-content-between align-items-center mb-2 px-1">
+                            <span class="small fw-bold text-muted">My Saved Programs</span>
+                            <button class="btn btn-sm btn-link py-0 text-primary fw-bold" onclick="createNewFile()">+ New</button>
+                        </div>
+                        <div id="saved-files-list"></div>
+                    </div>
+
+                    <!-- Tab 2: GITAMW Lab Sample Programs -->
+                    <div id="tab-pane-samples" class="sidebar-tab-pane" style="display:none;">
+                        <div class="small fw-bold text-muted mb-2 px-1">Lab Experiments</div>
+                        <div id="sample-files-list"></div>
+                    </div>
+
+                    <!-- Tab 3: Package Manager -->
+                    <div id="tab-pane-packages" class="sidebar-tab-pane" style="display:none;">
+                        <div class="small fw-bold text-muted mb-2">Installed Python Libraries</div>
+                        <div class="input-group input-group-sm mb-2">
+                            <input type="text" id="custom-package-input" class="form-control" placeholder="e.g. numpy">
+                            <button class="btn btn-warning" onclick="installPackage()"><i class="fas fa-download"></i></button>
+                        </div>
+                        <div id="packages-card-list" style="max-height: 400px; overflow-y: auto;"></div>
+                    </div>
+
+                    <!-- Tab 4: Syllabus Upload -->
+                    <div id="tab-pane-syllabus" class="sidebar-tab-pane" style="display:none;">
+                        <div class="small fw-bold text-muted mb-2 px-1">Syllabus PDF Viewer</div>
+                        <div class="mb-2">
+                            <label class="form-label small text-muted">Upload Latest Syllabus (PDF)</label>
+                            <input type="file" id="syllabus-file-input" class="form-control form-control-sm" accept=".pdf" onchange="uploadSyllabus(this)">
+                        </div>
+                        <div id="syllabus-viewer-container" class="syllabus-viewer-container">
+                            <div class="text-muted small text-center p-3">
+                                <i class="fas fa-file-pdf fa-2x mb-2 d-block text-danger"></i>
+                                No syllabus uploaded yet.<br>Upload a PDF to view it here.
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tab 5: Settings -->
+                    <div id="tab-pane-settings" class="sidebar-tab-pane" style="display:none;">
+                        <div class="small fw-bold text-muted mb-3 px-1">IDE Settings</div>
+
+                        <div class="settings-section">
+                            <div class="settings-section-title"><i class="fas fa-code me-1"></i> Editor Settings</div>
+                            <div class="mb-2">
+                                <label class="settings-label">Font Size</label>
+                                <input type="range" id="setting-editor-font-size" class="form-range" min="10" max="24" value="14" oninput="applyEditorSetting('fontSize', this.value)">
+                                <span id="editor-font-size-val" class="settings-value">14px</span>
+                            </div>
+                            <div class="mb-2">
+                                <label class="settings-label">Font Family</label>
+                                <select id="setting-editor-font" class="form-select form-select-sm" onchange="applyEditorSetting('fontFamily', this.value)">
+                                    <option value="Consolas, monospace">Consolas</option>
+                                    <option value="'Courier New', monospace">Courier New</option>
+                                    <option value="'Fira Code', monospace">Fira Code</option>
+                                    <option value="'Source Code Pro', monospace">Source Code Pro</option>
+                                    <option value="'JetBrains Mono', monospace">JetBrains Mono</option>
+                                </select>
+                            </div>
+                            <div class="mb-2">
+                                <label class="settings-label">Editor Theme</label>
+                                <select id="setting-editor-theme" class="form-select form-select-sm" onchange="applyEditorSetting('theme', this.value)">
+                                    <option value="vs-dark">Dark (vs-dark)</option>
+                                    <option value="vs">Light (vs)</option>
+                                    <option value="hc-black">High Contrast Black</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="settings-section mt-3">
+                            <div class="settings-section-title"><i class="fas fa-terminal me-1"></i> Console Settings</div>
+                            <div class="mb-2">
+                                <label class="settings-label">Console Font Size</label>
+                                <input type="range" id="setting-console-font-size" class="form-range" min="10" max="22" value="14" oninput="applyConsoleSetting('fontSize', this.value)">
+                                <span id="console-font-size-val" class="settings-value">14px</span>
+                            </div>
+                            <div class="mb-2">
+                                <label class="settings-label">Console Font Family</label>
+                                <select id="setting-console-font" class="form-select form-select-sm" onchange="applyConsoleSetting('fontFamily', this.value)">
+                                    <option value="Consolas, monospace">Consolas</option>
+                                    <option value="'Courier New', monospace">Courier New</option>
+                                    <option value="'Fira Code', monospace">Fira Code</option>
+                                    <option value="monospace">System Monospace</option>
+                                </select>
+                            </div>
+                            <div class="mb-2">
+                                <label class="settings-label">Console Text Color</label>
+                                <input type="color" id="setting-console-text-color" class="form-control form-control-sm form-control-color" value="#f8fafc" onchange="applyConsoleSetting('color', this.value)">
+                            </div>
+                            <div class="mb-2">
+                                <label class="settings-label">Console Background</label>
+                                <input type="color" id="setting-console-bg-color" class="form-control form-control-sm form-control-color" value="#090d16" onchange="applyConsoleSetting('background', this.value)">
+                            </div>
+                        </div>
+
+                        <button class="btn btn-sm btn-outline-secondary mt-3 w-100" onclick="resetIDESettings()">
+                            <i class="fas fa-undo me-1"></i> Reset to Defaults
+                        </button>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Center Editor & Bottom Output Panel Container -->
+            <main class="center-editor-container">
+
+                <!-- Monaco Editor Wrapper -->
+                <div id="monaco-editor-wrapper"></div>
+
+                <!-- Resizer Handle Bar -->
+                <div id="console-resizer" class="console-resizer" title="Drag up/down to adjust output console height">
+                    <div class="resizer-handle"></div>
+                </div>
+
+                <!-- Bottom Output Console Panel -->
+                <section class="bottom-output-panel" id="bottom-output-panel">
+                    <div class="output-header-tabs">
+                        <div>
+                            <button class="output-tab-btn active" data-output-tab="console" onclick="switchOutputTab('console')">
+                                <i class="fas fa-terminal me-1"></i> Console Output
+                            </button>
+                            <button class="output-tab-btn" data-output-tab="smart-error" onclick="switchOutputTab('smart-error')">
+                                <i class="fas fa-lightbulb text-warning me-1"></i> Smart Error Explainer
+                            </button>
+                            <button class="output-tab-btn" data-output-tab="plots" onclick="switchOutputTab('plots')">
+                                <i class="fas fa-chart-line text-info me-1"></i> Plots & Visuals
+                            </button>
+                            <button class="output-tab-btn" data-output-tab="history" onclick="switchOutputTab('history')">
+                                <i class="fas fa-history me-1"></i> History
+                            </button>
+                        </div>
+                        <div id="status-execution-telemetry" class="small text-muted d-flex gap-3">
+                            <span class="badge bg-secondary">Idle</span>
+                        </div>
+                    </div>
+
+                    <div class="output-body">
+                        <!-- Pane 1: Raw Console Output -->
+                        <div id="output-tab-console" class="output-tab-pane">
+                            <div id="output-console-body">Ready for execution. Press F5 or Run.</div>
+                        </div>
+
+                        <!-- Pane 2: Smart Error Explainer -->
+                        <div id="output-tab-smart-error" class="output-tab-pane" style="display:none;">
+                            <div id="smart-error-explainer-box"></div>
+                        </div>
+
+                        <!-- Pane 3: Matplotlib Plots -->
+                        <div id="output-tab-plots" class="output-tab-pane" style="display:none;">
+                            <div id="plots-container"></div>
+                        </div>
+
+                        <!-- Pane 4: Execution History -->
+                        <div id="output-tab-history" class="output-tab-pane" style="display:none;">
+                            <div id="history-log-list"></div>
+                        </div>
+                    </div>
+                </section>
+            </main>
+        </div>
+
+        <!-- Bottom Status Bar -->
+        <footer class="bottom-status-bar">
+            <div class="status-left">
+                <span><i class="fas fa-check-circle text-success me-1"></i> Python Runtime Ready</span>
+                <span><i class="fas fa-wifi-slash text-warning me-1"></i> Completely Offline Mode</span>
+                <span id="status-cursor-pos">Ln 1, Col 1</span>
+            </div>
+            <div class="status-right">
+                <span id="status-clock">00:00:00</span>
+                <span>UTF-8</span>
+            </div>
+        </footer>
+
+        <!-- Semi-Transparent Watermark Footer -->
+        <div class="watermark-footer">
+            GITAMW-Python-IDE — Design &amp; Developed by Dept. of CSE
+        </div>
+    </div>
+
+    <!-- Bootstrap 5 JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- App Custom Scripts -->
+    <script src="/static/js/splash.js?v=1.0.3"></script>
+    <script src="/static/js/app.js?v=1.0.3"></script>
+</body>
+</html>

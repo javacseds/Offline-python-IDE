@@ -1,0 +1,24 @@
+[
+    {
+        "name": "K. Sravani",
+        "roll_number": "212M1A0501",
+        "branch": "CSE",
+        "year": "3",
+        "semester": "1",
+        "section": "A",
+        "email": "",
+        "mobile": "",
+        "last_login": "2026-07-24T22:22:02.794058"
+    },
+    {
+        "name": "Dr K Rangaswamy",
+        "roll_number": "CSE123",
+        "branch": "CSE",
+        "year": "3",
+        "semester": "1",
+        "section": "A",
+        "email": "rangaswamy19@gmail.com",
+        "mobile": "07989105881",
+        "last_login": "2026-07-24T22:59:31.035642"
+    }
+]

@@ -1,0 +1,55 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyc
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+eggs/
+parts/
+var/
+sdist/
+develop-eggs/
+.installed.cfg
+lib/
+lib64/
+
+# Virtual Environments
+venv/
+env/
+.env
+.venv/
+ENV/
+
+# IDE / Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS Files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# PyInstaller
+*.spec
+dist/
+build/
+
+# Logs & temp
+*.log
+*.tmp
+logs/
+
+# Student workspace files (runtime data - not source code)
+workspace/student_files/
+workspace/session_data/
+
+# Compiled static
+*.min.js.map

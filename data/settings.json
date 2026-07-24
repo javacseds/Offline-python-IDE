@@ -1,0 +1,8 @@
+{
+    "theme": "dark",
+    "fontSize": 14,
+    "tabSize": 4,
+    "autoSave": true,
+    "wordWrap": "on",
+    "minimap": false
+}
