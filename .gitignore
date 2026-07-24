@@ -37,10 +37,19 @@ ENV/
 Thumbs.db
 desktop.ini
 
-# PyInstaller
-*.spec
-dist/
-build/
+# PyInstaller build output (generated - do not commit)
+installer/dist/
+installer/build/
+installer/setup_output/
+*.spec.bak
+
+# Keep these installer source files tracked:
+# installer/gitamw_ide.spec       <- tracked
+# installer/gitamw_ide_setup.iss  <- tracked
+# installer/build_installer.py    <- tracked
+# installer/app_launcher.py       <- tracked
+# installer/assets/               <- tracked (small icon files)
+
 
 # Logs & temp
 *.log
