@@ -656,10 +656,16 @@ async function downloadExecutionReport(filter = 'today') {
     const filterName = filter === 'today' ? "Today's Programs" : "All Programs";
     showToast(`Generating PDF lab report (${filterName})...`, "info");
 
+    const studentObj = window.IDE_STATE.student || JSON.parse(localStorage.getItem("gitamw_student") || "{}");
+    const outputConsole = document.getElementById("output-console-body");
+    const currentOutput = outputConsole ? outputConsole.textContent : "";
+
     const payload = {
         code: window.IDE_STATE.editor ? window.IDE_STATE.editor.getValue() : "",
         program_name: window.IDE_STATE.currentFileName || "untitled.py",
-        filter: filter
+        filter: filter,
+        student: studentObj,
+        output: currentOutput
     };
 
     try {
@@ -683,7 +689,7 @@ async function downloadExecutionReport(filter = 'today') {
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        const roll = window.IDE_STATE.student ? window.IDE_STATE.student.roll_number : "Session";
+        const roll = (studentObj && studentObj.roll_number) ? studentObj.roll_number : "Session";
         const scopeTag = filter === 'today' ? 'Today' : 'All';
         a.download = `GITAMW_${roll}_Report_${scopeTag}.pdf`;
         document.body.appendChild(a);
