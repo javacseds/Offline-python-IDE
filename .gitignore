@@ -62,3 +62,8 @@ workspace/session_data/
 
 # Compiled static
 *.min.js.map
+
+# Test verification scripts
+test_*.py
+verify_*.py
+
