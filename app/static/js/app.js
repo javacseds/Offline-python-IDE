@@ -217,10 +217,28 @@ function createFallbackTextarea(container, initialCode) {
 }
 
 // --- Program Execution Handler ---
-async function runProgram() {
+async function runProgram(stdinInputs = null) {
     if (!window.IDE_STATE.editor) return;
     const code = window.IDE_STATE.editor.getValue();
     const fileName = window.IDE_STATE.currentFileName;
+
+    // Auto-detect input() calls if no stdin provided
+    if (stdinInputs === null) {
+        try {
+            const detectRes = await fetch("/api/execute/detect-inputs", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ code, program_name: fileName })
+            });
+            const detectData = await detectRes.json();
+            if (detectData.needs_input) {
+                openInputDialog(detectData.prompts);
+                return; // Stop — wait for user to provide inputs in the dialog
+            }
+        } catch (e) {
+            // Detection failed; run anyway without stdin
+        }
+    }
 
     const btnRun = document.getElementById("btn-run-code");
     if (btnRun) {
@@ -238,7 +256,8 @@ async function runProgram() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
                 code: code,
-                program_name: fileName
+                program_name: fileName,
+                stdin_inputs: stdinInputs
             })
         });
         const result = await res.json();
@@ -883,4 +902,101 @@ function resetIDESettings() {
     if (consoleBgEl) { consoleBgEl.value = "#090d16"; applyConsoleSetting('background', "#090d16"); }
 
     showToast("✅ IDE settings reset to defaults.", "success");
+}
+
+// =============================================================================
+// INPUT VALUES MODAL — for programs that use input()
+// =============================================================================
+
+/**
+ * Opens the Input Dialog.
+ * @param {string[]} prompts - Array of prompt labels extracted from input("...") calls.
+ *                             If empty/null, shows a single generic field.
+ */
+function openInputDialog(prompts) {
+    const overlay   = document.getElementById("input-modal-overlay");
+    const container = document.getElementById("input-fields-container");
+    if (!overlay || !container) return;
+
+    // Build labeled input fields
+    container.innerHTML = "";
+    const labels = (prompts && prompts.length > 0) ? prompts : ["Input 1"];
+    labels.forEach((label, i) => {
+        const div = document.createElement("div");
+        div.className = "mb-2";
+        div.innerHTML = `
+            <label class="settings-label">${label || "Input " + (i + 1)}</label>
+            <input type="text" class="form-control form-control-sm input-value-field"
+                   placeholder="Enter value..." data-index="${i}"
+                   onkeydown="if(event.key==='Enter'){ document.querySelectorAll('.input-value-field')[${i+1}]?.focus() || runWithInputs(); }">
+        `;
+        container.appendChild(div);
+    });
+
+    overlay.style.display = "flex";
+    // Focus first field
+    setTimeout(() => {
+        const first = container.querySelector(".input-value-field");
+        if (first) first.focus();
+    }, 100);
+
+    // Escape key closes modal
+    document._inputEscHandler = (e) => { if (e.key === "Escape") closeInputModal(); };
+    document.addEventListener("keydown", document._inputEscHandler);
+}
+
+/** Close the input modal without running */
+function closeInputModal() {
+    const overlay = document.getElementById("input-modal-overlay");
+    if (overlay) overlay.style.display = "none";
+    if (document._inputEscHandler) {
+        document.removeEventListener("keydown", document._inputEscHandler);
+        document._inputEscHandler = null;
+    }
+}
+
+/** Close when clicking outside the modal box */
+function closeInputModalOnOverlay(event) {
+    if (event.target && event.target.id === "input-modal-overlay") {
+        closeInputModal();
+    }
+}
+
+/** Add an extra input field row */
+function addInputField() {
+    const container = document.getElementById("input-fields-container");
+    if (!container) return;
+    const count = container.querySelectorAll(".input-value-field").length + 1;
+    const div = document.createElement("div");
+    div.className = "mb-2";
+    div.innerHTML = `
+        <label class="settings-label">Input ${count}</label>
+        <input type="text" class="form-control form-control-sm input-value-field"
+               placeholder="Enter value...">
+    `;
+    container.appendChild(div);
+    div.querySelector("input").focus();
+}
+
+/** Clear all input field values */
+function clearInputFields() {
+    document.querySelectorAll(".input-value-field").forEach(f => f.value = "");
+    const first = document.querySelector(".input-value-field");
+    if (first) first.focus();
+}
+
+/** Collect all input values and run the program */
+async function runWithInputs() {
+    const fields = document.querySelectorAll(".input-value-field");
+    const inputs = Array.from(fields).map(f => f.value);
+
+    // Validate at least one non-empty value
+    if (inputs.every(v => v.trim() === "")) {
+        showToast("⚠️ Please enter at least one input value.", "warning");
+        return;
+    }
+
+    closeInputModal();
+    // Pass collected stdin values to runProgram
+    await runProgram(inputs);
 }

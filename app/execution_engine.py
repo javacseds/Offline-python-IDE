@@ -18,7 +18,18 @@ class ExecutionEngine:
     """
 
     @staticmethod
-    def execute(code: str, timeout_seconds: int = 30) -> Dict[str, Any]:
+    def detect_input_calls(code: str) -> int:
+        """Count how many input() calls exist in the code (rough scan, ignores comments)."""
+        import re
+        # Strip single-line comments
+        code_no_comments = re.sub(r'#[^\n]*', '', code)
+        # Count input( occurrences outside strings (approximate)
+        count = len(re.findall(r'\binput\s*\(', code_no_comments))
+        return count
+
+    @staticmethod
+    def execute(code: str, timeout_seconds: int = 30, stdin_inputs: list = None) -> Dict[str, Any]:
+
         start_time = time.time()
         
         # Check for pip magic commands inside code editor
@@ -83,11 +94,17 @@ except Exception:
             with open(script_path, "w", encoding="utf-8") as f:
                 f.write(hooked_code)
 
+            # Prepare stdin: join user-supplied inputs with newlines
+            stdin_text = None
+            if stdin_inputs:
+                stdin_text = "\n".join(str(v) for v in stdin_inputs) + "\n"
+
             # Spawn Python subprocess
             process = subprocess.Popen(
                 [sys.executable, script_path],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
+                stdin=subprocess.PIPE,
                 text=True,
                 cwd=temp_dir,
                 env=dict(os.environ, PYTHONIOENCODING="utf-8")
@@ -115,24 +132,37 @@ except Exception:
                         process.kill()
                         stdout, stderr = process.communicate()
                         duration = time.time() - start_time
+                        has_input = bool(stdin_inputs is None and ExecutionEngine.detect_input_calls("".join(clean_lines)) > 0)
                         return {
                             "status": "Timeout",
                             "stdout": stdout,
-                            "stderr": f"TimeoutError: Execution exceeded time limit of {timeout_seconds} seconds.",
+                            "stderr": f"TimeoutError: Execution exceeded {timeout_seconds}s.",
                             "duration_seconds": round(duration, 3),
                             "memory_mb": round(max_memory_mb, 2),
                             "plots": [],
                             "smart_error": {
                                 "has_error": True,
                                 "error_type": "TimeoutError",
+                                "category": "Timeout / Waiting for Input",
                                 "raw_message": f"Execution exceeded maximum limit of {timeout_seconds}s.",
                                 "line_number": None,
-                                "explanation": "Your code ran for too long and was automatically stopped.",
-                                "suggestion": "Check for infinite loops (e.g., while True without break) or heavy computations."
+                                "explanation": (
+                                    "Your program uses input() to read user values. "
+                                    "Please provide the input values in the 'Provide Input' box above the Run button, "
+                                    "then click Run again."
+                                ) if has_input else "Your code ran for too long and was automatically stopped.",
+                                "suggestion": (
+                                    "Click the 'Provide Input' button, enter each value on a separate line, then click Run."
+                                ) if has_input else "Check for infinite loops (while True without break) or very heavy computations."
                             }
                         }
 
-                stdout, stderr = process.communicate()
+                # Feed stdin and collect output
+                try:
+                    stdout, stderr = process.communicate(input=stdin_text, timeout=5)
+                except subprocess.TimeoutExpired:
+                    process.kill()
+                    stdout, stderr = process.communicate()
             except Exception as e:
                 process.kill()
                 stdout, stderr = "", str(e)

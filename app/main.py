@@ -77,6 +77,7 @@ class StudentLoginModel(BaseModel):
 class ExecuteCodeModel(BaseModel):
     code: str = Field(..., description="Python source code")
     program_name: Optional[str] = "untitled.py"
+    stdin_inputs: Optional[list] = Field(default=None, description="List of input() values to feed as stdin")
 
 class SaveFileModel(BaseModel):
     filename: str
@@ -148,6 +149,35 @@ async def get_current_student():
     """Returns currently logged in student session."""
     return {"student": current_student_session}
 
+# --- Input Detection ---
+@app.post("/api/execute/detect-inputs")
+async def detect_inputs(payload: ExecuteCodeModel):
+    """Scans code for input() calls and returns how many inputs are needed with prompt labels."""
+    import re
+    code = payload.code
+
+    # Extract the prompt strings from input("...") or input('...')
+    prompt_pattern = re.compile(
+        r'\binput\s*\(\s*(?:f?["\']([^"\']*)["\']|([^)]*))?\)',
+        re.MULTILINE
+    )
+    # Strip comments first
+    code_no_comments = re.sub(r'#[^\n]*', '', code)
+    matches = prompt_pattern.findall(code_no_comments)
+
+    prompts = []
+    for i, (q1, q2) in enumerate(matches):
+        label = (q1 or q2 or "").strip()
+        if not label:
+            label = f"Input {i + 1}"
+        prompts.append(label)
+
+    return {
+        "input_count": len(prompts),
+        "prompts": prompts,
+        "needs_input": len(prompts) > 0
+    }
+
 # --- Code Execution ---
 @app.post("/api/execute")
 async def execute_code(payload: ExecuteCodeModel):
@@ -163,8 +193,8 @@ async def execute_code(payload: ExecuteCodeModel):
             "smart_error": {"has_error": False}
         }
 
-    # Run in subprocess
-    result = ExecutionEngine.execute(payload.code)
+    # Run in subprocess (with optional pre-collected stdin values)
+    result = ExecutionEngine.execute(payload.code, stdin_inputs=payload.stdin_inputs)
 
     # Log to execution history JSON
     roll = current_student_session.get("roll_number", "GUEST")
