@@ -755,3 +755,84 @@ body.dark-mode .settings-label {
     box-shadow: 0 0 0 2px rgba(59,130,246,0.2) !important;
     outline: none;
 }
+
+/* --- 7. USER GUIDE SYNTAX CHEAT SHEET --- */
+.guide-accordion-container {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding-right: 4px;
+}
+
+.guide-topic-card {
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    overflow: hidden;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.guide-topic-card:hover {
+    border-color: #3b82f6;
+}
+
+.guide-topic-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    cursor: pointer;
+    user-select: none;
+    background: #0f172a;
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: #f8fafc;
+    transition: background 0.15s ease;
+}
+
+.guide-topic-header:hover {
+    background: #1e3a8a;
+    color: #ffffff;
+}
+
+.guide-topic-body {
+    padding: 12px;
+    border-top: 1px solid #334155;
+    background: #090d16;
+    animation: fadeInAccordion 0.2s ease;
+}
+
+@keyframes fadeInAccordion {
+    from { opacity: 0; transform: translateY(-4px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.syntax-code-block {
+    background: #060911;
+    border: 1px solid #1e293b;
+    border-radius: 6px;
+    padding: 10px;
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 0.8rem;
+    line-height: 1.45;
+    color: #e2e8f0;
+    overflow-x: auto;
+    white-space: pre;
+    margin: 0;
+}
+
+.syntax-insert-btn {
+    font-size: 0.7rem;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: rgba(59, 130, 246, 0.15);
+    border: 1px solid rgba(59, 130, 246, 0.4);
+    color: #60a5fa;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.syntax-insert-btn:hover {
+    background: #3b82f6;
+    color: #ffffff;
+}

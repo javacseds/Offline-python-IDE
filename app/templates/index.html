@@ -196,7 +196,7 @@
             <aside class="left-sidebar">
                 <div class="sidebar-tab-header">
                     <button class="sidebar-tab-btn active" data-tab="files"><i class="fas fa-folder me-1"></i> Saved</button>
-                    <button class="sidebar-tab-btn" data-tab="samples"><i class="fas fa-flask me-1"></i> Lab Code</button>
+                    <button class="sidebar-tab-btn" data-tab="guide"><i class="fas fa-book-open me-1"></i> User Guide</button>
                     <button class="sidebar-tab-btn" data-tab="packages"><i class="fas fa-box me-1"></i> Packages</button>
                     <button class="sidebar-tab-btn" data-tab="syllabus"><i class="fas fa-book me-1"></i> Syllabus</button>
                     <button class="sidebar-tab-btn" data-tab="settings"><i class="fas fa-cog me-1"></i> Settings</button>
@@ -212,10 +212,21 @@
                         <div id="saved-files-list"></div>
                     </div>
 
-                    <!-- Tab 2: GITAMW Lab Sample Programs -->
-                    <div id="tab-pane-samples" class="sidebar-tab-pane" style="display:none;">
-                        <div class="small fw-bold text-muted mb-2 px-1">Lab Experiments</div>
-                        <div id="sample-files-list"></div>
+                    <!-- Tab 2: User Guide & Python Syntax Cheat Sheet -->
+                    <div id="tab-pane-guide" class="sidebar-tab-pane" style="display:none;">
+                        <div class="d-flex align-items-center justify-content-between mb-2 px-1">
+                            <span class="small fw-bold text-muted"><i class="fas fa-bookmark text-warning me-1"></i> Python Syntax Cheat Sheet</span>
+                            <span class="badge bg-primary text-light" style="font-size:0.65rem;">Quick Lookup</span>
+                        </div>
+
+                        <!-- Search / Filter Box -->
+                        <div class="input-group input-group-sm mb-2">
+                            <span class="input-group-text bg-dark border-secondary text-muted"><i class="fas fa-search"></i></span>
+                            <input type="text" id="guide-search-input" class="form-control form-control-sm bg-dark border-secondary text-light" placeholder="Search syntax (e.g. for, dict, try)..." oninput="filterGuideTopics(this.value)">
+                        </div>
+
+                        <!-- Accordion List Container -->
+                        <div id="guide-topics-accordion" class="guide-accordion-container" style="max-height: 520px; overflow-y: auto;"></div>
                     </div>
 
                     <!-- Tab 3: Package Manager -->
@@ -466,5 +477,6 @@
     <!-- App Custom Scripts -->
     <script src="/static/js/splash.js?v=1.0.5"></script>
     <script src="/static/js/app.js?v=1.0.5"></script>
+    <script src="/static/js/guide.js?v=1.0.5"></script>
 </body>
 </html>
