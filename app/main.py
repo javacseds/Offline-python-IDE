@@ -152,30 +152,19 @@ async def get_current_student():
 # --- Input Detection ---
 @app.post("/api/execute/detect-inputs")
 async def detect_inputs(payload: ExecuteCodeModel):
-    """Scans code for input() calls and returns how many inputs are needed with prompt labels."""
-    import re
-    code = payload.code
+    """Scans code for input() calls and returns count + prompt labels for the frontend dialog."""
+    # Delegate to the engine's detection method (single source of truth)
+    prompts = ExecutionEngine.detect_input_calls(payload.code)
 
-    # Extract the prompt strings from input("...") or input('...')
-    prompt_pattern = re.compile(
-        r'\binput\s*\(\s*(?:f?["\']([^"\']*)["\']|([^)]*))?\)',
-        re.MULTILINE
-    )
-    # Strip comments first
-    code_no_comments = re.sub(r'#[^\n]*', '', code)
-    matches = prompt_pattern.findall(code_no_comments)
-
-    prompts = []
-    for i, (q1, q2) in enumerate(matches):
-        label = (q1 or q2 or "").strip()
-        if not label:
-            label = f"Input {i + 1}"
-        prompts.append(label)
+    # Give generic labels to any blank prompts (e.g. bare input() with no string)
+    labeled = []
+    for i, label in enumerate(prompts):
+        labeled.append(label if label else f"Input {i + 1}")
 
     return {
-        "input_count": len(prompts),
-        "prompts": prompts,
-        "needs_input": len(prompts) > 0
+        "input_count":  len(labeled),
+        "prompts":      labeled,
+        "needs_input":  len(labeled) > 0,
     }
 
 # --- Code Execution ---
