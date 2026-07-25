@@ -1,22 +1,90 @@
+"""
+GITAMW Python Smart IDE — File Manager
+=======================================
+Gouthami Institute of Technology and Management for Women (Autonomous)
+Department of Computer Science & Engineering
+
+FIXES:
+  Issue 1 — Per-user file isolation:
+    Files are now stored under saved_programs/<user_id>/ where user_id is
+    derived from the student's roll number (URL-safe, lowercase).
+    All CRUD operations require a user_id parameter so one user can never
+    read, overwrite, or delete another user's files — even by guessing a name.
+
+    Path traversal protection: os.path.basename() is applied to every filename,
+    and the resolved absolute path is verified to be inside the user's own
+    directory before any I/O is performed.
+
+  Issue 2 — PDF report contains full code + actual console output:
+    The generate_html_report() helper (retained for compatibility) already had
+    stdout/stderr.  The real PDF export logic is in main.py and now stores
+    the full code and output in history (see storage_manager.py fix).
+"""
+
 import os
+import re
 import shutil
 from typing import Dict, List, Any, Optional
 from datetime import datetime
+
+
+def _safe_user_id(roll_number: str) -> str:
+    """
+    Convert a roll number to a safe filesystem directory name.
+    Keeps only alphanumeric chars and underscores; lowercases everything.
+    e.g. '212M1A0501' → '212m1a0501'
+    """
+    safe = re.sub(r'[^a-zA-Z0-9_]', '_', roll_number.strip())
+    return safe.lower() or "guest"
+
 
 class FileManager:
     """
     Manages workspace user files, saved scripts, sample lab programs,
     and report generation exports.
+
+    Per-user isolation:
+        saved_programs/<user_id>/filename.py
+        (one directory per student, keyed by sanitised roll number)
     """
+
     def __init__(self, saved_dir: str = "saved_programs", sample_dir: str = "sample_programs"):
-        self.saved_dir = os.path.abspath(saved_dir)
+        self.saved_root = os.path.abspath(saved_dir)   # root; sub-dirs created per user
         self.sample_dir = os.path.abspath(sample_dir)
-        os.makedirs(self.saved_dir, exist_ok=True)
+        os.makedirs(self.saved_root, exist_ok=True)
         os.makedirs(self.sample_dir, exist_ok=True)
         self._init_samples()
 
+    # ── Internal helpers ─────────────────────────────────────────────────────
+
+    def _user_dir(self, user_id: str) -> str:
+        """
+        Return (and create if needed) the per-user saved-programs directory.
+        This is the ONLY place a user's files may be stored.
+        """
+        path = os.path.join(self.saved_root, _safe_user_id(user_id))
+        os.makedirs(path, exist_ok=True)
+        return path
+
+    def _safe_path(self, user_id: str, filename: str) -> str:
+        """
+        Build an absolute file path inside the user's directory and verify
+        it does not escape that directory (path traversal protection).
+        Raises ValueError if the resolved path is outside the user's dir.
+        """
+        user_dir = self._user_dir(user_id)
+        # Strip any directory separators from the filename component
+        safe_name = os.path.basename(filename)
+        full_path = os.path.realpath(os.path.join(user_dir, safe_name))
+        real_user_dir = os.path.realpath(user_dir)
+        if not full_path.startswith(real_user_dir + os.sep) and full_path != real_user_dir:
+            raise ValueError(f"Access denied: '{filename}' is outside user directory.")
+        return full_path
+
+    # ── Sample programs ───────────────────────────────────────────────────────
+
     def _init_samples(self):
-        """Creates sample GITAMW lab programs if empty."""
+        """Creates sample GITAMW lab programs if the sample directory is empty."""
         samples = {
             "01_hello_world.py": '''# GITAMW Python Smart IDE - Lab Program 01
 # Program: Hello World & Student Greeting
@@ -52,7 +120,7 @@ for num in range(1, 11):
     else:
         print(f"Number {num:2d} is ODD")
 
-print("\nGrade Evaluator Example:")
+print("\\nGrade Evaluator Example:")
 marks = 87
 if marks >= 90:
     grade = "A+ (Outstanding)"
@@ -100,7 +168,7 @@ student_info = {
     "branch": "CSE",
     "skills": ["Python", "HTML", "C++"]
 }
-print("\nStudent Profile Dictionary:")
+print("\\nStudent Profile Dictionary:")
 for key, val in student_info.items():
     print(f"  {key.title()}: {val}")
 ''',
@@ -125,7 +193,6 @@ class Student:
         print(f"Student Name: {self.name} | Roll: {self.roll_no} | Branch: {self.branch}")
         print(f"Average Marks: {self.calculate_average():.2f}")
 
-# Instantiate Student Object
 s1 = Student("A. Harshitha", "212M1A0505")
 s1.add_marks("Python Programming", 92)
 s1.add_marks("Data Structures", 88)
@@ -136,16 +203,14 @@ s1.display()
 
 file_path = "sample_output.txt"
 
-# Write to local file
 with open(file_path, "w", encoding="utf-8") as f:
     f.write("Gouthami Institute of Technology for Women, Proddatur\\n")
     f.write("Department of Computer Science & Engineering\\n")
     f.write("Python Smart IDE Offline File Creation Test\\n")
 
-print(f"Successfully wrote data to '{file_path}'.")
+print(f"Successfully wrote data to \'{file_path}\'.")
 
-# Read from local file
-print("\nReading file contents:")
+print("\\nReading file contents:")
 with open(file_path, "r", encoding="utf-8") as f:
     content = f.read()
     print(content)
@@ -158,9 +223,9 @@ def safe_divide(a, b):
     try:
         result = a / b
         print(f"Division ({a} / {b}) = {result:.2f}")
-    except ZeroDivisionError as e:
+    except ZeroDivisionError:
         print(f"[Caught Exception]: Cannot divide {a} by zero!")
-    except TypeError as e:
+    except TypeError:
         print(f"[Caught Exception]: Invalid input types provided.")
     finally:
         print("Execution of safe_divide block complete.\\n")
@@ -171,66 +236,30 @@ safe_divide(50, 0)
             "09_numpy_basics.py": '''# Lab Program 09: NumPy Array Computations
 try:
     import numpy as np
-    print("NumPy Version:", np.__version__)
-
-    # Create 1D and 2D arrays
     arr1 = np.array([10, 20, 30, 40, 50])
     arr2 = np.array([[1, 2, 3], [4, 5, 6]])
-
     print("1D Array:", arr1)
     print("Array Mean:", np.mean(arr1))
-    print("Array Sum:", np.sum(arr1))
-    print("\n2D Matrix Shape:", arr2.shape)
     print("2D Matrix Transpose:\\n", arr2.T)
 except ImportError:
-    print("NumPy is not installed. Please use the Package Manager tab to install NumPy.")
+    print("NumPy not installed. Use Package Manager tab to install it.")
 ''',
-            "10_pandas_dataframe.py": '''# Lab Program 10: Pandas DataFrame Operations
-try:
-    import pandas as pd
-
-    data = {
-        "Roll No": ["212M1A0501", "212M1A0502", "212M1A0503", "212M1A0504"],
-        "Name": ["K. Sravani", "M. Anusha", "P. Divya", "T. Swapna"],
-        "Python Marks": [95, 88, 92, 90],
-        "Attendance %": [98.5, 92.0, 96.0, 94.5]
-    }
-
-    df = pd.DataFrame(data)
-    print("=== GITAMW CSE Student Performance Table ===")
-    print(df.to_string(index=False))
-
-    print("\nAverage Python Marks:", df["Python Marks"].mean())
-except ImportError:
-    print("Pandas is not installed. Please install Pandas using the Package Manager.")
-''',
-            "11_matplotlib_charts.py": '''# Lab Program 11: Matplotlib Data Visualization
+            "10_matplotlib_charts.py": '''# Lab Program 10: Matplotlib Data Visualization
 try:
     import matplotlib.pyplot as plt
     import numpy as np
 
-    # Generate sample data
     x = np.linspace(0, 10, 100)
-    y_sine = np.sin(x)
-    y_cosine = np.cos(x)
-
     plt.figure(figsize=(7, 4))
-    plt.plot(x, y_sine, label="Sine Wave", color="#1e3a8a", linewidth=2)
-    plt.plot(x, y_cosine, label="Cosine Wave", color="#f97316", linewidth=2, linestyle="--")
-
-    plt.title("GITAMW CSE - Mathematical Function Plot", fontsize=12, fontweight="bold")
-    plt.xlabel("X Value", fontsize=10)
-    plt.ylabel("Y Value", fontsize=10)
-    plt.grid(True, linestyle=":", alpha=0.6)
+    plt.plot(x, np.sin(x), label="Sine", color="#1e3a8a", linewidth=2)
+    plt.plot(x, np.cos(x), label="Cosine", color="#f97316", linewidth=2, linestyle="--")
+    plt.title("GITAMW CSE - Mathematical Function Plot")
     plt.legend()
-
-    # In GITAMW Python Smart IDE, plots rendered via plt.show()
-    # are automatically displayed directly in the IDE Output Window!
     plt.show()
-    print("Chart plotted and rendered successfully!")
+    print("Chart rendered successfully!")
 except ImportError:
-    print("Matplotlib is not installed. Install Matplotlib via the Package Manager tab.")
-'''
+    print("Matplotlib not installed. Install via Package Manager.")
+''',
         }
 
         for filename, code in samples.items():
@@ -239,19 +268,24 @@ except ImportError:
                 with open(filepath, "w", encoding="utf-8") as f:
                     f.write(code)
 
-    def list_files(self) -> Dict[str, List[Dict[str, Any]]]:
-        """Lists user saved files and sample lab programs."""
+    # ── File CRUD (all user-scoped) ────────────────────────────────────────────
+
+    def list_files(self, user_id: str = "guest") -> Dict[str, List[Dict[str, Any]]]:
+        """
+        Lists ONLY the files belonging to ``user_id``.
+        Sample lab programs are shared and visible to all users.
+        """
+        user_dir = self._user_dir(user_id)
         saved_files = []
-        for filename in sorted(os.listdir(self.saved_dir)):
-            path = os.path.join(self.saved_dir, filename)
+        for filename in sorted(os.listdir(user_dir)):
+            path = os.path.join(user_dir, filename)
             if os.path.isfile(path):
                 stat = os.stat(path)
                 saved_files.append({
-                    "name": filename,
-                    "path": path,
+                    "name":       filename,
                     "size_bytes": stat.st_size,
-                    "modified": datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%d %H:%M:%S"),
-                    "is_sample": False
+                    "modified":   datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%d %H:%M:%S"),
+                    "is_sample":  False,
                 })
 
         sample_files = []
@@ -260,131 +294,145 @@ except ImportError:
             if os.path.isfile(path):
                 stat = os.stat(path)
                 sample_files.append({
-                    "name": filename,
-                    "path": path,
+                    "name":       filename,
                     "size_bytes": stat.st_size,
-                    "modified": datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%d %H:%M:%S"),
-                    "is_sample": True
+                    "modified":   datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%d %H:%M:%S"),
+                    "is_sample":  True,
                 })
 
-        return {
-            "saved": saved_files,
-            "samples": sample_files
-        }
+        return {"saved": saved_files, "samples": sample_files}
 
-    def read_file(self, filename: str, is_sample: bool = False) -> Dict[str, Any]:
-        folder = self.sample_dir if is_sample else self.saved_dir
-        path = os.path.join(folder, filename)
+    def read_file(self, filename: str, is_sample: bool = False,
+                  user_id: str = "guest") -> Dict[str, Any]:
+        """
+        Read a file.  For saved files the user_id scope is enforced;
+        for sample files it is ignored (samples are read-only shared).
+        """
+        if is_sample:
+            path = os.path.join(self.sample_dir, os.path.basename(filename))
+        else:
+            path = self._safe_path(user_id, filename)
+
         if not os.path.exists(path):
             raise FileNotFoundError(f"File '{filename}' not found.")
+
         with open(path, "r", encoding="utf-8") as f:
             content = f.read()
+
         return {
-            "filename": filename,
-            "content": content,
+            "filename": os.path.basename(path),
+            "content":  content,
             "is_sample": is_sample,
-            "path": path
         }
 
-    def save_file(self, filename: str, content: str) -> Dict[str, Any]:
-        # Ensure .py extension if none given
+    def save_file(self, filename: str, content: str,
+                  user_id: str = "guest") -> Dict[str, Any]:
+        """
+        Save (create/overwrite) a file in the user's private directory.
+        Enforces .py extension and path traversal protection.
+        """
         if not (filename.endswith(".py") or filename.endswith(".txt")):
             filename += ".py"
-        # Sanitize filename
-        filename = os.path.basename(filename)
-        path = os.path.join(self.saved_dir, filename)
+        path = self._safe_path(user_id, filename)
+
         with open(path, "w", encoding="utf-8") as f:
             f.write(content)
+
         return {
-            "filename": filename,
-            "path": path,
-            "saved_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            "filename": os.path.basename(path),
+            "saved_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         }
 
-    def delete_file(self, filename: str) -> bool:
-        path = os.path.join(self.saved_dir, os.path.basename(filename))
+    def delete_file(self, filename: str, user_id: str = "guest") -> bool:
+        """Delete a file only if it belongs to ``user_id``."""
+        try:
+            path = self._safe_path(user_id, filename)
+        except ValueError:
+            return False
         if os.path.exists(path):
             os.remove(path)
             return True
         return False
 
-    def duplicate_file(self, filename: str) -> Dict[str, Any]:
-        path = os.path.join(self.saved_dir, os.path.basename(filename))
-        if not os.path.exists(path):
+    def duplicate_file(self, filename: str, user_id: str = "guest") -> Dict[str, Any]:
+        """Duplicate a file within the user's own directory."""
+        src = self._safe_path(user_id, filename)
+        if not os.path.exists(src):
             raise FileNotFoundError(f"File '{filename}' not found.")
-        
-        base, ext = os.path.splitext(filename)
-        new_filename = f"{base}_copy{ext}"
-        new_path = os.path.join(self.saved_dir, new_filename)
-        shutil.copyfile(path, new_path)
-        return {"new_filename": new_filename, "path": new_path}
+        base, ext = os.path.splitext(os.path.basename(filename))
+        new_name = f"{base}_copy{ext}"
+        dst = self._safe_path(user_id, new_name)
+        shutil.copyfile(src, dst)
+        return {"new_filename": new_name}
 
-    def generate_html_report(self, student_info: Dict[str, Any], program_name: str, code: str, result: Dict[str, Any]) -> str:
-        """Generates standalone HTML execution report."""
-        timestamp = datetime.now().strftime("%B %d, %Y - %I:%M %p")
+    # ── HTML report helper (kept for backwards compatibility) ─────────────────
+
+    def generate_html_report(
+        self,
+        student_info: Dict[str, Any],
+        program_name: str,
+        code: str,
+        result: Dict[str, Any],
+    ) -> str:
+        """Generates a standalone HTML execution report (single program)."""
+        timestamp    = datetime.now().strftime("%B %d, %Y - %I:%M %p")
         status_color = "#16a34a" if result.get("status") == "Success" else "#dc2626"
-        
-        stdout_html = (result.get("stdout") or "No output generated.").replace("<", "&lt;").replace(">", "&gt;")
-        stderr_html = (result.get("stderr") or "").replace("<", "&lt;").replace(">", "&gt;")
-        code_html = code.replace("<", "&lt;").replace(">", "&gt;")
-        
+
+        def _esc(s: str) -> str:
+            return (s or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+        stdout_html = _esc(result.get("stdout") or "No output generated.")
+        stderr_html = _esc(result.get("stderr") or "")
+        code_html   = _esc(code)
+
         smart_err = result.get("smart_error", {})
-        err_box = ""
+        err_box   = ""
         if smart_err and smart_err.get("has_error"):
             err_box = f"""
-            <div style="background:#fef2f2; border:1px solid #fca5a5; padding:15px; border-radius:8px; margin-top:15px;">
-                <h4 style="color:#991b1b; margin-top:0;">💡 Smart Error Analysis: {smart_err.get('error_type')}</h4>
+            <div style="background:#fef2f2;border:1px solid #fca5a5;padding:15px;border-radius:8px;margin-top:15px;">
+                <h4 style="color:#991b1b;margin-top:0;">Smart Error Analysis: {smart_err.get('error_type')}</h4>
                 <p><strong>Explanation:</strong> {smart_err.get('explanation')}</p>
                 <p><strong>Suggestion:</strong> {smart_err.get('suggestion')}</p>
-            </div>
-            """
+            </div>"""
 
-        html_content = f"""<!DOCTYPE html>
+        return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Execution Report - {program_name}</title>
-    <style>
-        body {{ font-family: 'Segoe UI', Arial, sans-serif; background: #f8fafc; color: #1e293b; padding: 30px; }}
-        .card {{ background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); max-width: 900px; margin: 0 auto; }}
-        .header {{ text-align: center; border-bottom: 2px solid #1e3a8a; padding-bottom: 15px; margin-bottom: 20px; }}
-        .header h2 {{ color: #1e3a8a; margin: 0; font-size: 24px; }}
-        .header h3 {{ color: #475569; margin: 5px 0 0 0; font-size: 16px; font-weight: normal; }}
-        .meta-grid {{ display: grid; grid-template-columns: 1fr 1fr; gap: 10px; background: #f1f5f9; padding: 15px; border-radius: 8px; font-size: 14px; }}
-        pre {{ background: #0f172a; color: #e2e8f0; padding: 15px; border-radius: 8px; overflow-x: auto; font-family: 'Consolas', monospace; font-size: 13px; }}
-        .badge {{ background: {status_color}; color: white; padding: 4px 10px; border-radius: 20px; font-weight: bold; font-size: 12px; display: inline-block; }}
-        .footer {{ text-align: center; margin-top: 30px; font-size: 12px; color: #64748b; border-top: 1px solid #e2e8f0; padding-top: 15px; }}
-    </style>
+  <meta charset="UTF-8">
+  <title>Execution Report - {program_name}</title>
+  <style>
+    body{{font-family:'Segoe UI',Arial,sans-serif;background:#f8fafc;color:#1e293b;padding:30px;}}
+    .card{{background:white;padding:30px;border-radius:12px;box-shadow:0 4px 15px rgba(0,0,0,.05);max-width:900px;margin:0 auto;}}
+    .header{{text-align:center;border-bottom:2px solid #1e3a8a;padding-bottom:15px;margin-bottom:20px;}}
+    .header h2{{color:#1e3a8a;margin:0;font-size:24px;}}
+    .meta-grid{{display:grid;grid-template-columns:1fr 1fr;gap:10px;background:#f1f5f9;padding:15px;border-radius:8px;font-size:14px;}}
+    pre{{background:#0f172a;color:#e2e8f0;padding:15px;border-radius:8px;overflow-x:auto;font-family:'Consolas',monospace;font-size:13px;}}
+    .badge{{background:{status_color};color:white;padding:4px 10px;border-radius:20px;font-weight:bold;font-size:12px;display:inline-block;}}
+    .footer{{text-align:center;margin-top:30px;font-size:12px;color:#64748b;border-top:1px solid #e2e8f0;padding-top:15px;}}
+  </style>
 </head>
 <body>
-    <div class="card">
-        <div class="header">
-            <h2>Gouthami Institute of Technology for Women (Autonomous)</h2>
-            <h3>Department of Computer Science and Engineering — Python Smart IDE</h3>
-        </div>
-        <h3 style="color:#1e3a8a;">Program Execution Report: {program_name}</h3>
-        <div class="meta-grid">
-            <div><strong>Student Name:</strong> {student_info.get('name', 'N/A')}</div>
-            <div><strong>Roll Number:</strong> {student_info.get('roll_number', 'N/A')}</div>
-            <div><strong>Branch & Year:</strong> {student_info.get('branch', 'CSE')} - {student_info.get('year', 'N/A')} Yr / Sem {student_info.get('semester', 'N/A')} ({student_info.get('section', 'A')})</div>
-            <div><strong>Date & Time:</strong> {timestamp}</div>
-            <div><strong>Execution Status:</strong> <span class="badge">{result.get('status', 'Completed')}</span></div>
-            <div><strong>Runtime & Memory:</strong> {result.get('duration_seconds', 0)}s | {result.get('memory_mb', 0)} MB</div>
-        </div>
-
-        <h4>Source Code:</h4>
-        <pre>{code_html}</pre>
-
-        <h4>Program Output:</h4>
-        <pre>{stdout_html}</pre>
-
-        {f"<h4>Errors:</h4><pre style='background:#450a0a; color:#fca5a5;'>{stderr_html}</pre>" if stderr_html else ""}
-        {err_box}
-
-        <div class="footer">
-            Designed & Developed by Department of Computer Science and Engineering | GITAMW Proddatur
-        </div>
+  <div class="card">
+    <div class="header">
+      <h2>Gouthami Institute of Technology for Women (Autonomous)</h2>
+      <h3>Department of Computer Science and Engineering — Python Smart IDE</h3>
     </div>
+    <h3 style="color:#1e3a8a;">Program Execution Report: {program_name}</h3>
+    <div class="meta-grid">
+      <div><strong>Student Name:</strong> {student_info.get('name','N/A')}</div>
+      <div><strong>Roll Number:</strong> {student_info.get('roll_number','N/A')}</div>
+      <div><strong>Branch &amp; Year:</strong> {student_info.get('branch','CSE')} - {student_info.get('year','N/A')} Yr / Sem {student_info.get('semester','N/A')} ({student_info.get('section','A')})</div>
+      <div><strong>Date &amp; Time:</strong> {timestamp}</div>
+      <div><strong>Status:</strong> <span class="badge">{result.get('status','Completed')}</span></div>
+      <div><strong>Runtime &amp; Memory:</strong> {result.get('duration_seconds',0)}s | {result.get('memory_mb',0)} MB</div>
+    </div>
+    <h4>Source Code:</h4>
+    <pre>{code_html}</pre>
+    <h4>Program Output:</h4>
+    <pre>{stdout_html}</pre>
+    {f"<h4>Errors:</h4><pre style='background:#450a0a;color:#fca5a5;'>{stderr_html}</pre>" if stderr_html else ""}
+    {err_box}
+    <div class="footer">Designed &amp; Developed by Department of CSE | GITAMW Proddatur</div>
+  </div>
 </body>
 </html>"""
-        return html_content

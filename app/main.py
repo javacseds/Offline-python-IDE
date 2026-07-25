@@ -203,41 +203,49 @@ async def execute_code(payload: ExecuteCodeModel):
 
     return result
 
-# --- File Management ---
+# --- File Management (per-user isolated) ---
+def _current_user_id() -> str:
+    """Return the current student's roll number as user-dir key, or 'guest'."""
+    roll = current_student_session.get("roll_number", "").strip().upper()
+    return roll if roll else "guest"
+
 @app.get("/api/files/list")
 async def list_workspace_files():
-    """Lists saved student programs and sample lab programs."""
-    return file_mgr.list_files()
+    """Lists ONLY the current user's saved programs + shared sample programs."""
+    return file_mgr.list_files(user_id=_current_user_id())
 
 @app.get("/api/files/read")
 async def read_file(name: str, sample: bool = False):
-    """Reads content of a saved or sample Python file."""
+    """Reads a file — user-scoped for saved files, shared for samples."""
     try:
-        return file_mgr.read_file(name, is_sample=sample)
-    except FileNotFoundError as e:
+        return file_mgr.read_file(name, is_sample=sample, user_id=_current_user_id())
+    except (FileNotFoundError, ValueError) as e:
         raise HTTPException(status_code=404, detail=str(e))
 
 @app.post("/api/files/save")
 async def save_file(payload: SaveFileModel):
-    """Saves user code to disk."""
+    """Saves user code under the current user's private directory."""
     if not payload.filename.strip():
         raise HTTPException(status_code=400, detail="Filename cannot be empty.")
-    saved = file_mgr.save_file(payload.filename, payload.content)
+    try:
+        saved = file_mgr.save_file(payload.filename, payload.content, user_id=_current_user_id())
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     return {"success": True, "file": saved}
 
 @app.delete("/api/files/delete")
 async def delete_file(filename: str):
-    """Deletes a saved user file."""
-    success = file_mgr.delete_file(filename)
+    """Deletes a file — only allowed if it belongs to the current user."""
+    success = file_mgr.delete_file(filename, user_id=_current_user_id())
     if not success:
-        raise HTTPException(status_code=404, detail="File not found.")
+        raise HTTPException(status_code=404, detail="File not found or access denied.")
     return {"success": True, "message": f"Deleted {filename}"}
 
 @app.post("/api/files/duplicate")
 async def duplicate_file(filename: str = Body(..., embed=True)):
-    """Duplicates a saved file."""
+    """Duplicates a file within the current user's own directory."""
     try:
-        res = file_mgr.duplicate_file(filename)
+        res = file_mgr.duplicate_file(filename, user_id=_current_user_id())
         return {"success": True, "duplicate": res}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -279,132 +287,183 @@ async def update_settings(settings: Dict[str, Any] = Body(...)):
     updated = storage.update_settings(settings)
     return {"success": True, "settings": updated}
 
-# --- Export Report (PDF) ---
+# --- Export Report (PDF with full code + console output) ---
 @app.post("/api/export/report")
 async def export_report(payload: Dict[str, Any] = Body(...)):
-    """Generates PDF report containing all programs executed by student after login."""
+    """Generates PDF report with full source code AND console output for each run."""
     roll = current_student_session.get("roll_number")
     history_records = storage.get_history(roll_number=roll)
-    
-    current_code = payload.get("code", "")
+
+    current_code    = payload.get("code", "")
     current_program = payload.get("program_name", "untitled.py")
-    
+
     import io
     from reportlab.lib.pagesizes import letter
     from reportlab.lib import colors
-    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Preformatted
+    from reportlab.platypus import (SimpleDocTemplate, Paragraph, Spacer,
+                                    Table, TableStyle, Preformatted, HRFlowable)
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import cm
 
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(
-        buffer,
-        pagesize=letter,
-        rightMargin=36,
-        leftMargin=36,
-        topMargin=36,
-        bottomMargin=36
+        buffer, pagesize=letter,
+        rightMargin=36, leftMargin=36, topMargin=36, bottomMargin=36
     )
 
     styles = getSampleStyleSheet()
     title_style = ParagraphStyle(
-        'DocTitle',
-        parent=styles['Heading1'],
-        fontSize=15,
-        leading=18,
-        textColor=colors.HexColor("#1e3a8a"),
-        alignment=1,
-        spaceAfter=4
+        'DocTitle', parent=styles['Heading1'],
+        fontSize=14, leading=17, textColor=colors.HexColor("#1e3a8a"),
+        alignment=1, spaceAfter=4
     )
     subtitle_style = ParagraphStyle(
-        'DocSubtitle',
-        parent=styles['Heading2'],
-        fontSize=11,
-        leading=14,
-        textColor=colors.HexColor("#3b82f6"),
-        alignment=1,
-        spaceAfter=10
+        'DocSubtitle', parent=styles['Normal'],
+        fontSize=10, leading=13, textColor=colors.HexColor("#3b82f6"),
+        alignment=1, spaceAfter=8
     )
     heading_style = ParagraphStyle(
-        'SectionHeading',
-        parent=styles['Heading3'],
-        fontSize=11,
-        leading=14,
-        textColor=colors.HexColor("#1e293b"),
-        spaceBefore=10,
-        spaceAfter=6
+        'SectionHeading', parent=styles['Heading3'],
+        fontSize=11, leading=14, textColor=colors.HexColor("#1e293b"),
+        spaceBefore=10, spaceAfter=5
+    )
+    label_style = ParagraphStyle(
+        'Label', parent=styles['Normal'],
+        fontSize=9, textColor=colors.HexColor("#64748b"),
+        spaceBefore=8, spaceAfter=2
     )
     code_style = ParagraphStyle(
-        'CodeStyle',
-        fontName='Courier',
-        fontSize=8.5,
-        leading=11,
-        textColor=colors.HexColor("#0f172a"),
+        'CodeStyle', fontName='Courier', fontSize=8,
+        leading=10, textColor=colors.HexColor("#0f172a"),
         backColor=colors.HexColor("#f8fafc"),
-        borderPadding=6,
-        spaceAfter=6
+        borderPadding=6, spaceAfter=4
+    )
+    output_style = ParagraphStyle(
+        'OutputStyle', fontName='Courier', fontSize=8,
+        leading=10, textColor=colors.HexColor("#064e3b"),
+        backColor=colors.HexColor("#f0fdf4"),
+        borderPadding=6, spaceAfter=4
+    )
+    error_style = ParagraphStyle(
+        'ErrorStyle', fontName='Courier', fontSize=8,
+        leading=10, textColor=colors.HexColor("#7f1d1d"),
+        backColor=colors.HexColor("#fef2f2"),
+        borderPadding=6, spaceAfter=4
     )
 
     story = []
 
-    # Header
-    story.append(Paragraph("Gowthami Institute of Technology and Management for Women (Autonomous)", title_style))
-    story.append(Paragraph("Python Smart IDE — Cumulative Student Lab Execution Report", subtitle_style))
-    story.append(Spacer(1, 4))
+    # ── Header ────────────────────────────────────────────────────────────────
+    story.append(Paragraph("Gouthami Institute of Technology and Management for Women (Autonomous)", title_style))
+    story.append(Paragraph("Python Smart IDE — Student Lab Execution Report", subtitle_style))
+    story.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor("#1e3a8a")))
+    story.append(Spacer(1, 8))
 
-    # Student Details Table
-    name = current_student_session.get("name", "Student")
+    # ── Student details ───────────────────────────────────────────────────────
+    name     = current_student_session.get("name", "Student")
     roll_num = current_student_session.get("roll_number", "N/A")
-    branch = current_student_session.get("branch", "CSE")
-    year = current_student_session.get("year", "1")
-    sem = current_student_session.get("semester", "1")
-    sec = current_student_session.get("section", "A")
+    branch   = current_student_session.get("branch", "CSE")
+    year     = current_student_session.get("year", "1")
+    sem      = current_student_session.get("semester", "1")
+    sec      = current_student_session.get("section", "A")
 
     info_data = [
-        [Paragraph(f"<b>Student Name:</b> {name}", styles['Normal']), Paragraph(f"<b>Roll Number:</b> {roll_num}", styles['Normal'])],
-        [Paragraph(f"<b>Branch & Class:</b> {branch} Yr-{year}/Sem-{sem} ({sec})", styles['Normal']), Paragraph(f"<b>Generated Date:</b> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", styles['Normal'])]
+        [Paragraph(f"<b>Student Name:</b> {name}", styles['Normal']),
+         Paragraph(f"<b>Roll Number:</b> {roll_num}", styles['Normal'])],
+        [Paragraph(f"<b>Branch &amp; Class:</b> {branch} Yr-{year}/Sem-{sem} Sec-{sec}", styles['Normal']),
+         Paragraph(f"<b>Generated:</b> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", styles['Normal'])],
     ]
     t = Table(info_data, colWidths=[270, 270])
     t.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#f1f5f9")),
-        ('BOX', (0,0), (-1,-1), 1, colors.HexColor("#cbd5e1")),
-        ('INNERGRID', (0,0), (-1,-1), 0.5, colors.HexColor("#e2e8f0")),
-        ('PADDING', (0,0), (-1,-1), 5),
+        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor("#f1f5f9")),
+        ('BOX',        (0, 0), (-1, -1), 1,   colors.HexColor("#cbd5e1")),
+        ('INNERGRID',  (0, 0), (-1, -1), 0.5, colors.HexColor("#e2e8f0")),
+        ('PADDING',    (0, 0), (-1, -1), 5),
     ]))
     story.append(t)
     story.append(Spacer(1, 10))
 
-    # Compile programs
+    # ── Compile program records ───────────────────────────────────────────────
     records = list(history_records) if history_records else []
+
+    # If no history yet, include the currently open code (without output)
     if not records and current_code:
         records.append({
             "program_name": current_program,
-            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "status": "Active",
-            "code_snippet": current_code
+            "timestamp":    datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "status":       "Not Run",
+            "full_code":    current_code,
+            "full_output":  "",
+            "full_error":   "",
         })
 
     story.append(Paragraph(f"<b>Executed Programs Log ({len(records)} Entry/Entries)</b>", heading_style))
     story.append(Spacer(1, 4))
 
+    # ── One section per program ───────────────────────────────────────────────
     for idx, rec in enumerate(records, start=1):
-        p_name = rec.get("program_name", f"program_{idx}.py")
-        ts = rec.get("timestamp", "")
-        st = rec.get("status", "Executed")
-        cd = rec.get("code", rec.get("code_snippet", "# No code recorded"))
-        
-        status_color = "green" if st == "Success" else "red"
-        meta_line = f"<b>Program #{idx}: {p_name}</b> &nbsp;|&nbsp; Time: {ts} &nbsp;|&nbsp; Status: <font color='{status_color}'><b>{st}</b></font>"
+        p_name     = rec.get("program_name", f"program_{idx}.py")
+        ts         = rec.get("timestamp", "")
+        st         = rec.get("status", "Executed")
+        duration   = rec.get("duration_seconds", "")
+        memory     = rec.get("memory_mb", "")
+
+        # Use full_code if available, fall back to code_snippet for old records
+        full_code  = rec.get("full_code") or rec.get("code_snippet") or "# No code recorded"
+        # Use full_output / full_error if available (new records); fall back to preview
+        full_out   = rec.get("full_output") or rec.get("output_preview") or ""
+        full_err   = rec.get("full_error")  or ""
+
+        status_color = "green" if st == "Success" else ("grey" if st == "Not Run" else "red")
+        dur_text     = f" | Runtime: {duration}s | Memory: {memory} MB" if duration else ""
+        meta_line    = (f"<b>Program #{idx}: {p_name}</b> &nbsp;|&nbsp; "
+                        f"Time: {ts}{dur_text} &nbsp;|&nbsp; "
+                        f"Status: <font color='{status_color}'><b>{st}</b></font>")
+        story.append(HRFlowable(width="100%", thickness=0.5, color=colors.HexColor("#cbd5e1")))
+        story.append(Spacer(1, 4))
         story.append(Paragraph(meta_line, styles['Normal']))
         story.append(Spacer(1, 3))
-        story.append(Preformatted(cd, code_style))
-        story.append(Spacer(1, 6))
+
+        # ── Source Code section ──────────────────────────────────────────────
+        story.append(Paragraph("Source Code:", label_style))
+        story.append(Preformatted(full_code, code_style))
+
+        # ── Console Output section ───────────────────────────────────────────
+        story.append(Paragraph("Console Output:", label_style))
+        if full_out.strip():
+            story.append(Preformatted(full_out, output_style))
+        elif st == "Not Run":
+            story.append(Paragraph(
+                "<i>No output available — please run the code before exporting.</i>",
+                styles['Normal']
+            ))
+        else:
+            story.append(Paragraph("<i>(No output produced)</i>", styles['Normal']))
+
+        # ── Errors section (only if present) ────────────────────────────────
+        if full_err.strip():
+            story.append(Paragraph("Errors / Stderr:", label_style))
+            story.append(Preformatted(full_err, error_style))
+
+        story.append(Spacer(1, 8))
+
+    # ── Footer ────────────────────────────────────────────────────────────────
+    story.append(HRFlowable(width="100%", thickness=0.5, color=colors.HexColor("#94a3b8")))
+    story.append(Spacer(1, 4))
+    story.append(Paragraph(
+        "Designed &amp; Developed by Department of Computer Science &amp; Engineering | "
+        "GITAMW-Python-IDE-Design and Developed by Dept. of CSE",
+        ParagraphStyle('Footer', parent=styles['Normal'],
+                       fontSize=8, textColor=colors.HexColor("#64748b"), alignment=1)
+    ))
 
     doc.build(story)
     pdf_bytes = buffer.getvalue()
-    
+
     filename = f"GITAMW_Lab_Report_{roll_num if roll_num != 'N/A' else 'Session'}.pdf"
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
         headers={"Content-Disposition": f"attachment; filename={filename}"}
     )
+

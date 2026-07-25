@@ -87,29 +87,43 @@ class StorageManager:
         return None
 
     # --- Execution History Operations ---
-    def log_execution(self, roll_number: str, student_name: str, program_name: str, 
-                      code: str, status: str, duration: float, memory_mb: float, 
+    def log_execution(self, roll_number: str, student_name: str, program_name: str,
+                      code: str, status: str, duration: float, memory_mb: float,
                       output: str, error: str = ""):
-        """Logs program execution entry into history.json."""
+        """
+        Logs program execution entry into history.json.
+
+        FIX (Issue 2): Stores the FULL source code and FULL stdout/stderr output
+        so the PDF export can include complete content.  The legacy
+        code_snippet / output_preview fields are kept (truncated) for display
+        performance in the History tab; full_code and full_output are the
+        authoritative fields used by PDF export.
+        """
         history = self._read_json(self.history_file)
         entry = {
-            "id": len(history) + 1,
-            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "roll_number": roll_number,
-            "student_name": student_name,
-            "program_name": program_name,
-            "code_snippet": code[:200] + ("..." if len(code) > 200 else ""),
-            "status": status,
+            "id":               len(history) + 1,
+            "timestamp":        datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "roll_number":      roll_number,
+            "student_name":     student_name,
+            "program_name":     program_name,
+            # ── Display fields (truncated for UI performance) ──
+            "code_snippet":     code[:200] + ("..." if len(code) > 200 else ""),
+            "output_preview":   output[:300] if output else "",
+            # ── Full fields used by PDF export ──────────────────
+            "full_code":        code,
+            "full_output":      output or "",
+            "full_error":       error or "",
+            # ── Telemetry ───────────────────────────────────────
+            "status":           status,
             "duration_seconds": round(duration, 3),
-            "memory_mb": round(memory_mb, 2),
-            "output_preview": output[:300] if output else "",
-            "has_error": bool(error)
+            "memory_mb":        round(memory_mb, 2),
+            "has_error":        bool(error),
         }
-        history.insert(0, entry) # Most recent first
-        # Limit history to 500 records
+        history.insert(0, entry)   # Most recent first
         if len(history) > 500:
             history = history[:500]
         self._write_json(self.history_file, history)
+
 
     def get_history(self, roll_number: Optional[str] = None) -> List[Dict[str, Any]]:
         """Returns execution history filtered by student or all."""
