@@ -148,6 +148,19 @@ class ExecutionEngine:
             hooked_code = f"""\
 import os, sys
 
+# ── Interactive input echo interceptor for non-TTY mode ──────────────────────
+try:
+    import builtins
+    _orig_input = builtins.input
+    def _custom_input(prompt=""):
+        val = _orig_input(prompt)
+        sys.stdout.write(str(val) + "\\n")
+        sys.stdout.flush()
+        return val
+    builtins.input = _custom_input
+except Exception:
+    pass
+
 # ── Matplotlib headless interceptor ──────────────────────────────────────────
 try:
     import matplotlib
@@ -166,6 +179,7 @@ except Exception:
 
 # ── User code ─────────────────────────────────────────────────────────────────
 {clean_code}
+
 
 # ── Auto-save any open figures user forgot to plt.show() ─────────────────────
 try:
