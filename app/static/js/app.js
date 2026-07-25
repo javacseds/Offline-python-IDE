@@ -623,12 +623,43 @@ async function loadHistoryLog() {
     }
 }
 
-// --- PDF Report Download ---
-async function downloadExecutionReport() {
-    showToast("Generating cumulative PDF lab report...", "info");
+// --- PDF Report Export Options & Download ---
+function openExportModal() {
+    const overlay = document.getElementById("export-modal-overlay");
+    if (overlay) overlay.style.display = "flex";
+}
+
+function closeExportModal() {
+    const overlay = document.getElementById("export-modal-overlay");
+    if (overlay) overlay.style.display = "none";
+}
+
+function closeExportModalOnOverlay(event) {
+    if (event.target && event.target.id === "export-modal-overlay") {
+        closeExportModal();
+    }
+}
+
+function selectExportOption(filter) {
+    const radio = document.getElementById(filter === 'today' ? 'export-today' : 'export-all');
+    if (radio) radio.checked = true;
+}
+
+async function confirmDownloadReport() {
+    const selectedRadio = document.querySelector('input[name="exportFilter"]:checked');
+    const filter = selectedRadio ? selectedRadio.value : 'today';
+    closeExportModal();
+    await downloadExecutionReport(filter);
+}
+
+async function downloadExecutionReport(filter = 'today') {
+    const filterName = filter === 'today' ? "Today's Programs" : "All Programs";
+    showToast(`Generating PDF lab report (${filterName})...`, "info");
+
     const payload = {
         code: window.IDE_STATE.editor ? window.IDE_STATE.editor.getValue() : "",
-        program_name: window.IDE_STATE.currentFileName || "untitled.py"
+        program_name: window.IDE_STATE.currentFileName || "untitled.py",
+        filter: filter
     };
 
     try {
@@ -639,7 +670,12 @@ async function downloadExecutionReport() {
         });
 
         if (!res.ok) {
-            showToast("Failed to generate PDF report.", "danger");
+            let errorMsg = "No programs found to export.";
+            try {
+                const errData = await res.json();
+                if (errData && errData.detail) errorMsg = errData.detail;
+            } catch (e) {}
+            showToast(`⚠️ ${errorMsg}`, "warning");
             return;
         }
 
@@ -648,15 +684,16 @@ async function downloadExecutionReport() {
         const a = document.createElement("a");
         a.href = url;
         const roll = window.IDE_STATE.student ? window.IDE_STATE.student.roll_number : "Session";
-        a.download = `GITAMW_Lab_Report_${roll}.pdf`;
+        const scopeTag = filter === 'today' ? 'Today' : 'All';
+        a.download = `GITAMW_${roll}_Report_${scopeTag}.pdf`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
 
-        showToast("PDF Execution Report downloaded successfully!", "success");
+        showToast("✅ PDF Lab Report downloaded successfully!", "success");
     } catch (err) {
-        showToast("Failed to export PDF report.", "danger");
+        showToast("❌ Failed to export PDF report: " + err.message, "danger");
     }
 }
 

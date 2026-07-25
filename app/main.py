@@ -290,12 +290,68 @@ async def update_settings(settings: Dict[str, Any] = Body(...)):
 # --- Export Report (PDF with full code + console output) ---
 @app.post("/api/export/report")
 async def export_report(payload: Dict[str, Any] = Body(...)):
-    """Generates PDF report with full source code AND console output for each run."""
+    """Generates PDF report with full source code AND console output, scoped by user and date option."""
     roll = current_student_session.get("roll_number")
+    if not roll:
+        raise HTTPException(status_code=401, detail="Please log in to export your report.")
+
+    export_filter = payload.get("filter", "today").lower()  # "today" or "all"
+    current_code = payload.get("code", "")
+    current_program = payload.get("program_name", "untitled.py")
+
+    # Fetch execution history for current logged-in student ONLY
     history_records = storage.get_history(roll_number=roll)
 
-    current_code    = payload.get("code", "")
-    current_program = payload.get("program_name", "untitled.py")
+    # Helper function to detect sample/boilerplate/untouched starter code
+    def is_boilerplate(c: str) -> bool:
+        if not c or not c.strip():
+            return True
+        st = c.strip()
+        if "welcome_student(" in st:
+            return True
+        if st.startswith("# GITAMW Python Smart IDE"):
+            return True
+        if st.startswith("# Lab Program 0") or st.startswith("# Lab Program 1") or st.startswith("# Lab Program"):
+            return True
+        return False
+
+    today_str = datetime.now().strftime("%Y-%m-%d")
+
+    # Filter records based on user scope, date option, and boilerplate exclusion
+    records = []
+    for rec in (history_records or []):
+        rec_time = rec.get("timestamp", "")
+        code_text = rec.get("full_code") or rec.get("code_snippet") or ""
+
+        # Scope Option A: Today's Programs
+        if export_filter == "today" and not rec_time.startswith(today_str):
+            continue
+
+        # Exclude boilerplate / default template code
+        if is_boilerplate(code_text):
+            continue
+
+        records.append(rec)
+
+    # Fallback: Check if current active editor code is non-boilerplate
+    if not records and current_code and not is_boilerplate(current_code):
+        # Current open code is student-written
+        # If "today" filter is set, allow it since active session is today
+        records.append({
+            "program_name": current_program,
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "status": "Not Run",
+            "full_code": current_code,
+            "full_output": "",
+            "full_error": ""
+        })
+
+    # Empty State Check: If no matching programs found, return friendly error
+    if not records:
+        if export_filter == "today":
+            raise HTTPException(status_code=404, detail="No programs found for today.")
+        else:
+            raise HTTPException(status_code=404, detail="No user programs found in history.")
 
     import io
     from reportlab.lib.pagesizes import letter
@@ -354,8 +410,9 @@ async def export_report(payload: Dict[str, Any] = Body(...)):
     story = []
 
     # ── Header ────────────────────────────────────────────────────────────────
+    scope_title = "Today's Programs" if export_filter == "today" else "All Programs — Full History"
     story.append(Paragraph("Gouthami Institute of Technology and Management for Women (Autonomous)", title_style))
-    story.append(Paragraph("Python Smart IDE — Student Lab Execution Report", subtitle_style))
+    story.append(Paragraph(f"Python Smart IDE — Student Lab Execution Report ({scope_title})", subtitle_style))
     story.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor("#1e3a8a")))
     story.append(Spacer(1, 8))
 
@@ -383,22 +440,9 @@ async def export_report(payload: Dict[str, Any] = Body(...)):
     story.append(t)
     story.append(Spacer(1, 10))
 
-    # ── Compile program records ───────────────────────────────────────────────
-    records = list(history_records) if history_records else []
-
-    # If no history yet, include the currently open code (without output)
-    if not records and current_code:
-        records.append({
-            "program_name": current_program,
-            "timestamp":    datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "status":       "Not Run",
-            "full_code":    current_code,
-            "full_output":  "",
-            "full_error":   "",
-        })
-
-    story.append(Paragraph(f"<b>Executed Programs Log ({len(records)} Entry/Entries)</b>", heading_style))
+    story.append(Paragraph(f"<b>Executed Programs Log ({len(records)} Entry/Entries — {scope_title})</b>", heading_style))
     story.append(Spacer(1, 4))
+
 
     # ── One section per program ───────────────────────────────────────────────
     for idx, rec in enumerate(records, start=1):
