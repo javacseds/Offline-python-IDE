@@ -36,7 +36,7 @@ a = Analysis(
         'starlette.templating',
         'starlette.staticfiles',
         'starlette.responses',
-        # Uvicorn
+        # Uvicorn & HTTP protocol backends
         'uvicorn',
         'uvicorn.main',
         'uvicorn.config',
@@ -49,6 +49,19 @@ a = Analysis(
         'uvicorn.loops.auto',
         'uvicorn.loops.asyncio',
         'uvicorn.logging',
+        'h11',
+        'h11._abnf',
+        'h11._connection',
+        'h11._events',
+        'h11._headers',
+        'h11._readers',
+        'h11._state',
+        'h11._util',
+        'h11._writers',
+        # Multipart / Form parsing
+        'multipart',
+        'multipart.multipart',
+        'python_multipart',
         # Async
         'anyio',
         'anyio._backends._asyncio',
@@ -57,6 +70,8 @@ a = Analysis(
         'jinja2.ext',
         # Pydantic
         'pydantic',
+        'pydantic_core',
+        'pydantic_core._pydantic_core',
         # ReportLab PDF
         'reportlab',
         'reportlab.pdfgen',
@@ -73,11 +88,13 @@ a = Analysis(
         'app.storage_manager',
         'app.package_manager',
         'app.smart_error_explainer',
-        # PIL (for tray icon)
+        # Utilities & System
+        'pystray',
         'PIL',
         'PIL.Image',
         'PIL.ImageDraw',
-        # System
+        'psutil',
+        'runpy',
         'multiprocessing',
         'ctypes',
         'email.mime.multipart',

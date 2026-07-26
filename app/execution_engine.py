@@ -196,8 +196,13 @@ except Exception:
                 f.write(hooked_code)
 
             # ── 4. Spawn subprocess ───────────────────────────────────────────
+            if getattr(sys, "frozen", False):
+                python_cmd = [sys.executable, "--run-script", script_path]
+            else:
+                python_cmd = [sys.executable, script_path]
+
             process = subprocess.Popen(
-                [sys.executable, script_path],
+                python_cmd,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 stdin=subprocess.PIPE,       # Always open — we control when to close

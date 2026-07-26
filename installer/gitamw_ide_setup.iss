@@ -73,8 +73,8 @@ Name: "startmenuicon"; Description: "Create a &Start Menu shortcut"; GroupDescri
 Name: "quicklaunch";   Description: "Create a &Quick Launch shortcut (taskbar pin)"; GroupDescription: "Additional icons:"; Flags: unchecked; OnlyBelowVersion: 6.1
 
 [Files]
-; Copy the entire PyInstaller-generated folder
-Source: "dist\GITAMW_Smart_IDE\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+; Copy the single-file PyInstaller executable
+Source: "dist\GITAMW_Smart_IDE.exe"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 ; Desktop shortcut

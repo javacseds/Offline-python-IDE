@@ -67,3 +67,8 @@ workspace/session_data/
 test_*.py
 verify_*.py
 
+# Installed flags & test artifacts
+.gitamw_installed
+.write_test
+
+

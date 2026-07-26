@@ -31,12 +31,25 @@ if getattr(sys, "frozen", False):
 else:
     BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-# App-level data lives next to the .exe (persists across runs), not in _MEIPASS
-if getattr(sys, "frozen", False):
-    DATA_ROOT = os.path.dirname(sys.executable)
-else:
-    DATA_ROOT = BASE_DIR
+# App-level data lives next to the .exe if writable, or in %APPDATA% if read-only (e.g. Program Files)
+def get_writable_data_root() -> str:
+    if getattr(sys, "frozen", False):
+        exe_dir = os.path.dirname(sys.executable)
+        test_file = os.path.join(exe_dir, ".write_test")
+        try:
+            with open(test_file, "w") as f:
+                f.write("test")
+            os.remove(test_file)
+            return exe_dir
+        except Exception:
+            appdata = os.environ.get("APPDATA") or os.path.expanduser("~")
+            target_dir = os.path.join(appdata, "GITAMW_Python_Smart_IDE")
+            os.makedirs(target_dir, exist_ok=True)
+            return target_dir
+    else:
+        return BASE_DIR
 
+DATA_ROOT     = get_writable_data_root()
 STATIC_DIR    = os.path.join(BASE_DIR,  "app", "static")
 TEMPLATES_DIR = os.path.join(BASE_DIR,  "app", "templates")
 DATA_DIR      = os.path.join(DATA_ROOT, "data")
